@@ -227,8 +227,7 @@ def execute_query(ctx, query: str, max_rows: int = 100) -> dict:
 # ---------------------------------------------------------------------------
 
 # Expose the ASGI app for uvicorn: `uvicorn server:app` (used by Azure App Service)
-# Allow all hosts for simplicity - this is safe for an internal/controlled deployment
-app = mcp.streamable_http_app(allowed_hosts=["*"])
+app = mcp.streamable_http_app()
 
 if __name__ == "__main__":
     transport = os.getenv("MCP_TRANSPORT", "stdio")
