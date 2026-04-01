@@ -32,4 +32,4 @@ apt-get update
 ACCEPT_EULA=Y apt-get install -y msodbcsql18
 
 echo "Starting MCP server..."
-gunicorn -w 1 -b 0.0.0.0:8000 server:app
+gunicorn -w 1 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 server:app
