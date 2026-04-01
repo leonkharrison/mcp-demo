@@ -13,6 +13,9 @@ load_dotenv()
 # Global connection string
 connection_string = None
 
+# Allow all hosts for Azure deployment
+os.environ.setdefault("MCP_ALLOWED_HOSTS", "*")
+
 # ---------------------------------------------------------------------------
 # Connection
 # ---------------------------------------------------------------------------
