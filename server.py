@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 load_dotenv()
 
@@ -224,6 +225,7 @@ def execute_query(query: str, max_rows: int = 100) -> dict:
 
 # Expose the ASGI app for uvicorn: `uvicorn server:app` (used by Azure App Service)
 app = mcp.streamable_http_app()
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 
 if __name__ == "__main__":
     transport = os.getenv("MCP_TRANSPORT", "stdio")
