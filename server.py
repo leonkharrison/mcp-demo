@@ -9,6 +9,9 @@ from mcp.server.fastmcp import FastMCP
 load_dotenv()
 
 
+# Global connection string
+connection_string = None
+
 # ---------------------------------------------------------------------------
 # Connection
 # ---------------------------------------------------------------------------
@@ -34,18 +37,14 @@ def _build_connection_string() -> str:
     )
 
 
-@dataclass
-class AppContext:
-    connection_string: str
-
-
 @asynccontextmanager
 async def app_lifespan(server: FastMCP):
+    global connection_string
     connection_string = _build_connection_string()
     # Validate connectivity at startup — fail fast before any client connects
     conn = pyodbc.connect(connection_string, timeout=10)
     conn.close()
-    yield AppContext(connection_string=connection_string)
+    yield
 
 
 # ---------------------------------------------------------------------------
@@ -88,14 +87,13 @@ mcp = FastMCP("AdventureWorks SQL Server", lifespan=app_lifespan)
 
 
 @mcp.tool()
-def list_tables(ctx) -> list[dict]:
+def list_tables() -> list[dict]:
     """
     List all user tables in the AdventureWorks database.
 
     Returns each table's schema name, table name, and approximate row count.
     Use this to discover what data is available before querying or fetching schemas.
     """
-    app_ctx: AppContext = ctx.request_context.lifespan_context
     query = """
         SELECT
             s.name  AS schema_name,
@@ -107,7 +105,7 @@ def list_tables(ctx) -> list[dict]:
                               AND p.index_id IN (0, 1)
         ORDER BY s.name, t.name
     """
-    with pyodbc.connect(app_ctx.connection_string, timeout=15) as conn:
+    with pyodbc.connect(connection_string, timeout=15) as conn:
         cursor = conn.cursor()
         cursor.execute(query)
         columns = [col[0] for col in cursor.description]
@@ -115,7 +113,7 @@ def list_tables(ctx) -> list[dict]:
 
 
 @mcp.tool()
-def get_schema(ctx, table_name: str, schema_name: str = "dbo") -> list[dict]:
+def get_schema(table_name: str, schema_name: str = "dbo") -> list[dict]:
     """
     Get the column definitions for a specific table.
 
@@ -126,7 +124,6 @@ def get_schema(ctx, table_name: str, schema_name: str = "dbo") -> list[dict]:
         table_name:  The table name, e.g. "SalesOrderHeader"
         schema_name: The schema name (default: "dbo"), e.g. "Sales"
     """
-    app_ctx: AppContext = ctx.request_context.lifespan_context
     query = """
         SELECT
             c.COLUMN_NAME,
@@ -160,7 +157,7 @@ def get_schema(ctx, table_name: str, schema_name: str = "dbo") -> list[dict]:
           AND c.TABLE_SCHEMA = ?
         ORDER BY c.ORDINAL_POSITION
     """
-    with pyodbc.connect(app_ctx.connection_string, timeout=15) as conn:
+    with pyodbc.connect(connection_string, timeout=15) as conn:
         cursor = conn.cursor()
         cursor.execute(
             query,
@@ -180,7 +177,7 @@ def get_schema(ctx, table_name: str, schema_name: str = "dbo") -> list[dict]:
 
 
 @mcp.tool()
-def execute_query(ctx, query: str, max_rows: int = 100) -> dict:
+def execute_query(query: str, max_rows: int = 100) -> dict:
     """
     Execute a SELECT query against the AdventureWorks database.
 
@@ -201,8 +198,7 @@ def execute_query(ctx, query: str, max_rows: int = 100) -> dict:
 
     _validate_select_query(query)
 
-    app_ctx: AppContext = ctx.request_context.lifespan_context
-    with pyodbc.connect(app_ctx.connection_string, timeout=15) as conn:
+    with pyodbc.connect(connection_string, timeout=15) as conn:
         cursor = conn.cursor()
         cursor.execute(query)
         columns = [col[0] for col in cursor.description]
